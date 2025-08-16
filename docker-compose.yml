@@ -1,0 +1,291 @@
+version: '3.8'
+
+services:
+  # API Gateway
+  api-gateway:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - asset-service
+      - project-service
+      - maintenance-service
+      - compliance-service
+      - iot-service
+      - analytics-service
+      - auth-service
+      - notification-service
+    networks:
+      - buildpro-network
+
+  # Asset Service
+  asset-service:
+    build:
+      context: ./backend/asset
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@asset-db/buildpro360_asset
+    depends_on:
+      - asset-db
+    networks:
+      - buildpro-network
+
+  # Project Service
+  project-service:
+    build:
+      context: ./backend/project
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@project-db/buildpro360_project
+    depends_on:
+      - project-db
+    networks:
+      - buildpro-network
+
+  # Maintenance Service
+  maintenance-service:
+    build:
+      context: ./backend/maintenance
+    ports:
+      - "8002:8002"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@maintenance-db/buildpro360_maintenance
+    depends_on:
+      - maintenance-db
+    networks:
+      - buildpro-network
+
+  # Compliance Service
+  compliance-service:
+    build:
+      context: ./backend/compliance
+    ports:
+      - "8003:8003"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@compliance-db/buildpro360_compliance
+    depends_on:
+      - compliance-db
+    networks:
+      - buildpro-network
+
+  # IoT Service
+  iot-service:
+    build:
+      context: ./backend/iot
+    ports:
+      - "8004:8004"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@iot-db/buildpro360_iot
+      - INFLUXDB_URL=http://influxdb:8086
+      - MQTT_BROKER=mqtt
+      - MQTT_PORT=1883
+    depends_on:
+      - iot-db
+      - influxdb
+      - mqtt
+    networks:
+      - buildpro-network
+
+  # Analytics Service
+  analytics-service:
+    build:
+      context: ./backend/analytics
+    ports:
+      - "8005:8005"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@analytics-db/buildpro360_analytics
+      - ASSET_SERVICE_URL=http://asset-service:8000
+      - PROJECT_SERVICE_URL=http://project-service:8001
+      - MAINTENANCE_SERVICE_URL=http://maintenance-service:8002
+      - COMPLIANCE_SERVICE_URL=http://compliance-service:8003
+      - IOT_SERVICE_URL=http://iot-service:8004
+    depends_on:
+      - analytics-db
+    networks:
+      - buildpro-network
+
+  # Auth Service
+  auth-service:
+    build:
+      context: ./backend/auth
+    ports:
+      - "8006:8006"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@auth-db/buildpro360_auth
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ALGORITHM=${JWT_ALGORITHM}
+      - JWT_EXPIRATION=${JWT_EXPIRATION}
+    depends_on:
+      - auth-db
+    networks:
+      - buildpro-network
+
+  # Notification Service
+  notification-service:
+    build:
+      context: ./backend/notification
+    ports:
+      - "8007:8007"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@notification-db/buildpro360_notification
+      - REDIS_URL=redis://redis:6379/0
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_USERNAME=${EMAIL_USERNAME}
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD}
+      - SMS_API_KEY=${SMS_API_KEY}
+      - FIREBASE_CREDENTIALS=${FIREBASE_CREDENTIALS}
+    depends_on:
+      - notification-db
+      - redis
+    networks:
+      - buildpro-network
+
+  # Databases
+  asset-db:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=buildpro360_asset
+    volumes:
+      - asset-db-data:/var/lib/postgresql/data
+    networks:
+      - buildpro-network
+
+  project-db:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=buildpro360_project
+    volumes:
+      - project-db-data:/var/lib/postgresql/data
+    networks:
+      - buildpro-network
+
+  maintenance-db:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=buildpro360_maintenance
+    volumes:
+      - maintenance-db-data:/var/lib/postgresql/data
+    networks:
+      - buildpro-network
+
+  compliance-db:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=buildpro360_compliance
+    volumes:
+      - compliance-db-data:/var/lib/postgresql/data
+    networks:
+      - buildpro-network
+
+  iot-db:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=buildpro360_iot
+    volumes:
+      - iot-db-data:/var/lib/postgresql/data
+    networks:
+      - buildpro-network
+
+  analytics-db:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=buildpro360_analytics
+    volumes:
+      - analytics-db-data:/var/lib/postgresql/data
+    networks:
+      - buildpro-network
+
+  auth-db:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=buildpro360_auth
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    networks:
+      - buildpro-network
+
+  notification-db:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=buildpro360_notification
+    volumes:
+      - notification-db-data:/var/lib/postgresql/data
+    networks:
+      - buildpro-network
+
+  # Additional Services
+  influxdb:
+    image: influxdb:2.0
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=adminpassword
+      - DOCKER_INFLUXDB_INIT_ORG=buildpro360
+      - DOCKER_INFLUXDB_INIT_BUCKET=telemetry
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=mytoken
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+    ports:
+      - "8086:8086"
+    networks:
+      - buildpro-network
+
+  redis:
+    image: redis:6
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - buildpro-network
+
+  mqtt:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./config/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mqtt-data:/mosquitto/data
+      - mqtt-log:/mosquitto/log
+    networks:
+      - buildpro-network
+
+networks:
+  buildpro-network:
+    driver: bridge
+
+volumes:
+  asset-db-data:
+  project-db-data:
+  maintenance-db-data:
+  compliance-db-data:
+  iot-db-data:
+  analytics-db-data:
+  auth-db-data:
+  notification-db-data:
+  influxdb-data:
+  redis-data:
+  mqtt-data:
+  mqtt-log:
